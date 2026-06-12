@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — Kolo sreče</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:     oklch(0.46 0.175 27);
+      --bg-2:   oklch(0.36 0.155 27);
+      --fg:     #F4ECDF;
+      --fg-soft:rgba(244,236,223,0.62);
+      --fg-faint:rgba(244,236,223,0.34);
+      --accent: #C8AC7E;
+      --line:   rgba(244,236,223,0.22);
+      --sans:   "Hanken Grotesk", system-ui, sans-serif;
+      --ease:   cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { min-height: 100%; }
+    body {
+      font-family: var(--sans);
+      -webkit-font-smoothing: antialiased;
+      color: var(--fg);
+      background: radial-gradient(120% 120% at 50% 8%, var(--bg) 0%, var(--bg-2) 78%);
+      min-height: 100vh;
+    }
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.5;
+      mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+    }
+    #mesh-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp 0.7s var(--ease) both; }
+
+    /* ── HEADER ── */
+    .site-header {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 30px 46px;
+      position: relative;
+      z-index: 1;
+    }
+    .site-header .brand-logo { height: 32px; width: auto; filter: brightness(0) invert(1); flex-shrink: 0; }
+    .site-header .hdiv  { width: 1px; height: 20px; background: var(--line); }
+    .site-header .sub   { font-size: 12px; font-weight: 500; letter-spacing: 0.28em; color: var(--fg-soft); text-transform: uppercase; }
+    .site-header .badge {
+      margin-left: auto;
+      font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--accent); border: 1px solid rgba(200,172,126,0.35);
+      padding: 4px 12px; border-radius: 999px;
+    }
+    .brand-logo-btn { cursor: pointer; opacity: 1; transition: opacity 0.2s; }
+    .brand-logo-btn:hover { opacity: 0.7; }
+
+    /* ── LOGIN ── */
+    #login-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: calc(100vh - 90px);
+      padding: 24px;
+      position: relative;
+      z-index: 1;
+    }
+    .login-card {
+      width: min(400px, 90vw);
+      text-align: center;
+    }
+    .hairline {
+      width: 44px; height: 1px;
+      background: var(--accent); opacity: 0.8;
+      margin: 0 auto 32px;
+    }
+    .login-card h1 {
+      font-size: 18px; font-weight: 600; letter-spacing: 0.1em;
+      text-transform: uppercase; margin-bottom: 8px;
+    }
+    .login-card p {
+      font-size: 13px; color: var(--fg-soft); margin-bottom: 40px;
+    }
+    .field {
+      width: 100%;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid var(--line);
+      color: var(--fg);
+      font-family: var(--sans);
+      font-size: 16px;
+      padding: 10px 0;
+      outline: none;
+      margin-bottom: 20px;
+      letter-spacing: 0.04em;
+    }
+    .field::placeholder { color: var(--fg-faint); }
+    .field:focus { border-bottom-color: var(--accent); }
+    .login-btn {
+      width: 100%; padding: 18px;
+      border-radius: 999px; border: 1px solid var(--accent);
+      background: var(--accent); color: var(--bg-2);
+      font-family: var(--sans); font-size: 14px; font-weight: 600;
+      letter-spacing: 0.16em; text-transform: uppercase;
+      cursor: pointer; margin-top: 8px;
+      transition: opacity 0.2s;
+    }
+    .login-btn:hover { opacity: 0.85; }
+    .login-err {
+      font-size: 12px; color: #fca5a5; margin-top: 14px;
+      display: none; letter-spacing: 0.04em;
+    }
+
+    /* ── DASHBOARD ── */
+    #dashboard {
+      display: none;
+      padding: 0 46px 60px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .dash-topbar {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+    }
+    .dash-title {
+      font-size: 11px; font-weight: 500; letter-spacing: 0.3em;
+      text-transform: uppercase; color: var(--fg-soft);
+    }
+    .stat-pill {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(244,236,223,0.06);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 16px;
+      font-size: 12px; letter-spacing: 0.1em;
+    }
+    .stat-pill strong { color: var(--accent); font-size: 15px; }
+    .refresh-btn {
+      margin-left: auto;
+      background: transparent; border: 1px solid var(--line);
+      color: var(--fg-soft); font-family: var(--sans);
+      font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+      padding: 7px 16px; border-radius: 999px; cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .refresh-btn:hover { border-color: var(--accent); color: var(--fg); }
+    .live-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #4ade80;
+      animation: pulse 2s infinite;
+      flex-shrink: 0;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+
+    /* Prize summary row */
+    .prize-summary {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      margin-bottom: 20px;
+    }
+    .prize-chip {
+      background: rgba(244,236,223,0.05);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--fg-soft);
+      display: flex; align-items: center; gap: 7px;
+    }
+    .prize-chip strong { font-size: 13px; color: var(--fg); font-weight: 600; }
+
+    /* Table */
+    .table-wrap {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    thead tr {
+      background: rgba(244,236,223,0.06);
+    }
+    thead th {
+      text-align: left;
+      padding: 14px 20px;
+      font-size: 10px; font-weight: 500; letter-spacing: 0.28em;
+      text-transform: uppercase; color: var(--fg-faint);
+      border-bottom: 1px solid var(--line);
+    }
+    tbody tr {
+      border-bottom: 1px solid rgba(244,236,223,0.07);
+      transition: background 0.15s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(244,236,223,0.04); }
+    tbody td {
+      padding: 14px 20px;
+      color: var(--fg-soft);
+      vertical-align: middle;
+    }
+    tbody td.prize-cell {
+      color: var(--fg);
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    tbody td.code-cell {
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+    }
+    tbody td.time-cell {
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    .empty-row td {
+      text-align: center;
+      padding: 48px;
+      color: var(--fg-faint);
+      font-size: 13px;
+      letter-spacing: 0.1em;
+    }
+    tbody tr.voided .code-cell,
+    tbody tr.voided .prize-cell,
+    tbody tr.voided .time-cell,
+    tbody tr.voided td:first-child { opacity: 0.38; }
+    tbody tr.voided.respin .code-cell,
+    tbody tr.voided.respin .prize-cell,
+    tbody tr.voided.respin .time-cell,
+    tbody tr.voided.respin td:first-child { opacity: 0.52; }
+    tbody td.check-cell,
+    tbody td.respin-cell { width: 44px; text-align: center; }
+    .status-btn {
+      display: inline-flex; align-items: center; line-height: 1;
+      background: transparent; border: none;
+      font-family: var(--sans); font-size: 13px;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      cursor: pointer; padding: 2px 0;
+      color: var(--fg-soft);
+      transition: color 0.2s;
+    }
+    .lbl-wrap { display: grid; }
+    .lbl-wrap .lbl-default,
+    .lbl-wrap .lbl-hover {
+      grid-area: 1/1;
+      white-space: nowrap;
+      transition: opacity 0.15s;
+    }
+    .lbl-wrap .lbl-hover { opacity: 0; font-size: 10px; letter-spacing: 0.16em; }
+    .status-btn:hover .lbl-default { opacity: 0; }
+    .status-btn:hover .lbl-wrap .lbl-hover { opacity: 1; }
+    /* ✓ Izdano → Razveljavi */
+    .status-btn.check-btn { color: #4ade80; }
+    .status-btn.check-btn:hover { color: #fca5a5; }
+    /* ✕ Ni izdano → Izdaj */
+    .status-btn.x-btn { color: rgba(255,255,255,0.3); }
+    .status-btn.x-btn:hover { color: #4ade80; }
+    /* ↺ Respin gumb (aktiven) */
+    .status-btn.respin-btn { color: #fb923c; }
+    .status-btn.respin-btn:hover { color: #fdba74; }
+
+    /* ── TIP KOLESA ── */
+    .wheel-style-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+      padding: 14px 20px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(244,236,223,0.03);
+    }
+    .wheel-style-label {
+      font-size: 10px; font-weight: 500; letter-spacing: 0.28em;
+      text-transform: uppercase; color: var(--fg-faint);
+      white-space: nowrap;
+    }
+    .wheel-style-seg {
+      display: flex; gap: 4px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 999px;
+      padding: 3px;
+    }
+    .wheel-style-seg button {
+      border: none; background: transparent; color: var(--fg-soft);
+      font-family: var(--sans); font-size: 11px; font-weight: 600;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 7px 18px; border-radius: 999px;
+      cursor: pointer; transition: all 0.2s var(--ease);
+    }
+    .wheel-style-seg button.active {
+      background: var(--accent); color: var(--bg-2);
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="mesh-canvas" aria-hidden="true"></canvas>
+
+<header class="site-header">
+  <img src="https://www.generali-zame.si/o/zame-theme/images/zame-logo.svg" alt="Generali" class="brand-logo brand-logo-btn" id="brand-logo" />
+  <span class="hdiv"></span>
+  <span class="sub">Admin</span>
+</header>
+
+<!-- Login -->
+<div id="login-wrap">
+  <div class="login-card fade-up">
+    <div class="hairline"></div>
+    <h1>Admin dostop</h1>
+    <input type="text" id="login-user" placeholder="Uporabniško ime" autocomplete="username" style="display:block;width:100%;padding:10px 14px;margin-bottom:10px;border:1px solid #ccc;border-radius:8px;font-size:15px;box-sizing:border-box;">
+    <input type="password" id="login-pass" placeholder="Geslo" autocomplete="current-password" style="display:block;width:100%;padding:10px 14px;margin-bottom:14px;border:1px solid #ccc;border-radius:8px;font-size:15px;box-sizing:border-box;">
+    <div class="login-err" id="login-err" style="display:none;color:#c00;font-size:13px;margin-bottom:10px;">Napačno uporabniško ime ali geslo.</div>
+    <button class="login-btn" id="login-btn">Vstopi</button>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div id="dashboard">
+  <div class="dash-topbar">
+    <span class="dash-title">Rezultati</span>
+    <div class="stat-pill"><span class="live-dot"></span><strong id="stat-total">—</strong> spinov</div>
+    <div class="stat-pill">Skupaj kod: <strong id="stat-codes">—</strong></div>
+    <button class="refresh-btn" id="refresh-btn">↻ Osveži</button>
+  </div>
+
+
+
+  <!-- Tip kolesa -->
+  <div class="wheel-style-bar">
+    <span class="wheel-style-label">Tip kolesa</span>
+    <div class="wheel-style-seg" id="wheel-style-seg">
+      <button data-style="compass">Kompas</button>
+      <button data-style="vinjeta">Vinjeta</button>
+    </div>
+  </div>
+
+  <div class="prize-summary" id="prize-summary"></div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Koda</th>
+          <th>Nagrada</th>
+          <th>Čas</th>
+          <th></th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="spins-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  (function() {
+    var canvas = document.getElementById('mesh-canvas');
+    var gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (!gl) return;
+    var VS = 'attribute vec2 a_pos;void main(){gl_Position=vec4(a_pos,0.,1.);}';
+    var FS = [
+      'precision mediump float;',
+      'uniform vec2 u_res; uniform float u_t; uniform vec2 u_mouse;',
+      'void main(){',
+      '  vec2 uv=gl_FragCoord.xy/u_res; uv.y=1.-uv.y;',
+      '  float t=u_t*.22;',
+      '  vec2 p0=vec2(.5+.38*sin(t*.55),.5+.38*cos(t*.38));',
+      '  vec2 p1=vec2(.5+.42*cos(t*.48+1.),.5+.42*sin(t*.65+.5));',
+      '  vec2 p2=vec2(.5+.32*sin(t*.75+2.),.5+.32*cos(t*.28+1.));',
+      '  vec2 p3=vec2(.5+.46*cos(t*.38+3.),.5+.46*sin(t*.52+2.));',
+      '  vec3 c0=vec3(.37,.03,.03);',
+      '  vec3 c1=vec3(.53,.08,.15);',
+      '  vec3 c2=vec3(.81,.15,.09);',
+      '  vec3 c3=vec3(.63,.13,.17);',
+      '  float w0=1./(dot(uv-p0,uv-p0)+.07);',
+      '  float w1=1./(dot(uv-p1,uv-p1)+.07);',
+      '  float w2=1./(dot(uv-p2,uv-p2)+.07);',
+      '  float w3=1./(dot(uv-p3,uv-p3)+.07);',
+      '  float wm=.4/(dot(uv-u_mouse,uv-u_mouse)+.15);',
+      '  float tot=w0+w1+w2+w3+wm;',
+      '  vec3 col=(c0*w0+c1*w1+c2*w2+c3*w3+c2*wm)/tot;',
+      '  gl_FragColor=vec4(col,1.);',
+      '}'
+    ].join('');
+    function mkShader(type, src) {
+      var s = gl.createShader(type);
+      gl.shaderSource(s, src); gl.compileShader(s); return s;
+    }
+    var prog = gl.createProgram();
+    gl.attachShader(prog, mkShader(gl.VERTEX_SHADER, VS));
+    gl.attachShader(prog, mkShader(gl.FRAGMENT_SHADER, FS));
+    gl.linkProgram(prog); gl.useProgram(prog);
+    var buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
+    var aPos = gl.getAttribLocation(prog, 'a_pos');
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+    var uRes = gl.getUniformLocation(prog, 'u_res');
+    var uTime = gl.getUniformLocation(prog, 'u_t');
+    var uMouse = gl.getUniformLocation(prog, 'u_mouse');
+    var mx = .5, my = .5;
+    document.body.addEventListener('mousemove', function(e) {
+      mx = e.clientX / window.innerWidth;
+      my = e.clientY / window.innerHeight;
+    });
+    function resize() {
+      canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+      gl.viewport(0, 0, canvas.width, canvas.height);
+    }
+    window.addEventListener('resize', resize); resize();
+    (function frame(t) {
+      gl.uniform2f(uRes, canvas.width, canvas.height);
+      gl.uniform1f(uTime, t * .001);
+      gl.uniform2f(uMouse, mx, 1. - my);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      requestAnimationFrame(frame);
+    })(0);
+  })();
+</script>
+<script>
+  const SUPABASE_URL = 'https://tpiieycpkcwzfdvgrsli.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwaWlleWNwa2N3emZkdmdyc2xpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzMzcwNTUsImV4cCI6MjA5NTkxMzA1NX0.yFBAKgDRVqGINwmmnzneN4sQvB2W-0yg6kMb-GZN2_Q';
+  const SB_HEADERS = {
+    'apikey': SUPABASE_KEY,
+    'Authorization': `Bearer ${SUPABASE_KEY}`,
+  };
+
+  // ── TIP KOLESA ─────────────────────────────────────────────────
+  (async function() {
+    const seg  = document.getElementById('wheel-style-seg');
+    const btns = seg.querySelectorAll('button');
+
+    async function loadWheelStyle() {
+      try {
+        const r = await fetch(
+          `${SUPABASE_URL}/rest/v1/app_config?key=eq.wheel_style&select=value`,
+          { headers: SB_HEADERS }
+        );
+        const data = await r.json();
+        const val = data[0]?.value || 'vinjeta';
+        btns.forEach(b => b.classList.toggle('active', b.dataset.style === val));
+      } catch(e) {}
+    }
+
+    btns.forEach(b => b.addEventListener('click', async () => {
+      const val = b.dataset.style;
+      btns.forEach(x => x.classList.toggle('active', x === b));
+      await fetch(
+        `${SUPABASE_URL}/rest/v1/app_config?key=eq.wheel_style`,
+        {
+          method: 'PATCH',
+          headers: { ...SB_HEADERS, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+          body: JSON.stringify({ value: val }),
+        }
+      );
+    }));
+
+    loadWheelStyle();
+  })();
+
+  const loginWrap  = document.getElementById('login-wrap');
+  const dashboard  = document.getElementById('dashboard');
+  const loginBtn   = document.getElementById('login-btn');
+  const tbody      = document.getElementById('spins-tbody');
+  const prizeSummary = document.getElementById('prize-summary');
+  const statTotal  = document.getElementById('stat-total');
+  const statCodes  = document.getElementById('stat-codes');
+
+  // ── LIVE SYNC ─────────────────────────────────────────────────
+  let lastSpinCount = 0;
+
+  async function pollForNewSpins() {
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/spins?select=id`, { headers: SB_HEADERS });
+      const data = await r.json();
+      if (Array.isArray(data) && data.length !== lastSpinCount) {
+        lastSpinCount = data.length;
+        loadData();
+      }
+    } catch {}
+  }
+
+  function startRealtime() {
+    setInterval(pollForNewSpins, 4000);
+  }
+
+  // ── LOGIN ────────────────────────────────────────────────────
+  function doLogin() {
+    const u = document.getElementById('login-user').value.trim();
+    const p = document.getElementById('login-pass').value;
+    const err = document.getElementById('login-err');
+    if (u !== 'luka' || p !== 'admin') {
+      err.style.display = 'block';
+      return;
+    }
+    err.style.display = 'none';
+    loginWrap.style.display = 'none';
+    dashboard.style.display = 'block';
+    loadData();
+    startRealtime();
+  }
+
+  loginBtn.addEventListener('click', doLogin);
+  document.getElementById('login-user').addEventListener('keydown', e => e.key === 'Enter' && doLogin());
+  document.getElementById('login-pass').addEventListener('keydown', e => e.key === 'Enter' && doLogin());
+  document.getElementById('refresh-btn').addEventListener('click', loadData);
+
+  document.getElementById('brand-logo').addEventListener('click', function() {
+    if (dashboard.style.display !== 'none' && dashboard.style.display !== '') {
+      dashboard.style.display = 'none';
+      loginWrap.style.display = 'flex';
+    }
+  });
+
+  // ── DATA ─────────────────────────────────────────────────────
+  let prizesData = {};
+
+  async function sbGet(table, query = '') {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, { headers: SB_HEADERS });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  async function voidSpin(spinId, prizeId) {
+    if (!confirm('Označiti nagrado kot "ni izdana" in obnoviti zalogo?')) return;
+    try {
+      const r1 = await fetch(`${SUPABASE_URL}/rest/v1/spins?id=eq.${spinId}`, {
+        method: 'PATCH',
+        headers: { ...SB_HEADERS, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ voided: true }),
+      });
+      if (!r1.ok) throw new Error(await r1.text());
+
+      const prize = prizesData[prizeId];
+      if (prize && prize.stock !== null) {
+        const r2 = await fetch(`${SUPABASE_URL}/rest/v1/prizes?id=eq.${prizeId}`, {
+          method: 'PATCH',
+          headers: { ...SB_HEADERS, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+          body: JSON.stringify({ stock: prize.stock + 1 }),
+        });
+        if (!r2.ok) throw new Error(await r2.text());
+      }
+
+      loadData();
+    } catch(e) {
+      alert('Napaka: ' + e.message);
+    }
+  }
+
+  async function reissueSpin(spinId, prizeId) {
+    if (!confirm('Nagrado znova označiti kot izdano?')) return;
+    try {
+      const r1 = await fetch(`${SUPABASE_URL}/rest/v1/spins?id=eq.${spinId}`, {
+        method: 'PATCH',
+        headers: { ...SB_HEADERS, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ voided: false, respin: false }),
+      });
+      if (!r1.ok) throw new Error(await r1.text());
+
+      const prize = prizesData[prizeId];
+      if (prize && prize.stock !== null) {
+        const r2 = await fetch(`${SUPABASE_URL}/rest/v1/prizes?id=eq.${prizeId}`, {
+          method: 'PATCH',
+          headers: { ...SB_HEADERS, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+          body: JSON.stringify({ stock: prize.stock - 1 }),
+        });
+        if (!r2.ok) throw new Error(await r2.text());
+      }
+
+      loadData();
+    } catch(e) {
+      alert('Napaka: ' + e.message);
+    }
+  }
+
+  async function allowRespin(spinId, prizeId, qrCode) {
+    if (!confirm('Dovoli stranki ponovni vrtljaj? Koda bo označena kot neporabljena, nagrada kot ni izdana.')) return;
+    try {
+      const r1 = await fetch(`${SUPABASE_URL}/rest/v1/spins?id=eq.${spinId}`, {
+        method: 'PATCH',
+        headers: { ...SB_HEADERS, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ voided: true, respin: true }),
+      });
+      if (!r1.ok) throw new Error(await r1.text());
+
+      const prize = prizesData[prizeId];
+      if (prize && prize.stock !== null) {
+        const r2 = await fetch(`${SUPABASE_URL}/rest/v1/prizes?id=eq.${prizeId}`, {
+          method: 'PATCH',
+          headers: { ...SB_HEADERS, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+          body: JSON.stringify({ stock: prize.stock + 1 }),
+        });
+        if (!r2.ok) throw new Error(await r2.text());
+      }
+
+      if (qrCode) {
+        const r3 = await fetch(`${SUPABASE_URL}/rest/v1/qr_codes?code=eq.${encodeURIComponent(qrCode)}`, {
+          method: 'PATCH',
+          headers: { ...SB_HEADERS, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+          body: JSON.stringify({ used: false, used_at: null }),
+        });
+        if (!r3.ok) throw new Error(await r3.text());
+      }
+
+      loadData();
+    } catch(e) {
+      alert('Napaka: ' + e.message);
+    }
+  }
+
+  async function loadData() {
+    try {
+      const countHeaders = { ...SB_HEADERS, 'Prefer': 'count=exact' };
+      const [spins, prizes, rTotal, rUsed] = await Promise.all([
+        sbGet('spins',  'order=spun_at.desc&select=*'),
+        sbGet('prizes', 'order=id.asc&select=*'),
+        fetch(`${SUPABASE_URL}/rest/v1/qr_codes?select=code`, { headers: countHeaders }),
+        fetch(`${SUPABASE_URL}/rest/v1/qr_codes?used=eq.true&select=code`, { headers: countHeaders }),
+      ]);
+      const totalCodes = parseInt(rTotal.headers.get('content-range')?.split('/')[1] ?? 0);
+      const usedCodes  = parseInt(rUsed.headers.get('content-range')?.split('/')[1] ?? 0);
+
+      // Mapa prize_id → name in podatki
+      const prizeMap = {};
+      prizes.forEach(p => { prizeMap[p.id] = p.name; prizesData[p.id] = p; });
+
+      const activeSpins = spins.filter(s => !s.voided);
+
+      // Statistike
+      statTotal.textContent = activeSpins.length;
+      statCodes.textContent = usedCodes + ' / ' + totalCodes;
+
+      // Prize summary (samo izdane)
+      const counts = {};
+      prizes.forEach(p => { counts[p.name] = 0; });
+      activeSpins.forEach(s => {
+        const name = prizeMap[s.prize_id];
+        if (name) counts[name] = (counts[name] || 0) + 1;
+      });
+      prizeSummary.innerHTML = Object.entries(counts)
+        .map(([name, n]) => `
+          <div class="prize-chip">
+            <strong>${n}</strong>
+            ${name.toUpperCase()}
+          </div>`)
+        .join('');
+
+      lastSpinCount = spins.length;
+
+      // Tabela
+      if (spins.length === 0) {
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="6">Še ni spinov.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = spins.map((s, i) => {
+        const prize = prizeMap[s.prize_id] ? prizeMap[s.prize_id].toUpperCase() : '—';
+        const code  = s.qr_code || '—';
+        const time  = s.spun_at
+          ? new Date(s.spun_at).toLocaleString('sl-SI', { dateStyle: 'short', timeStyle: 'medium' })
+          : '—';
+        const rowClass = s.voided ? ` class="voided${s.respin ? ' respin' : ''}"` : '';
+        const qrArg    = s.qr_code ? `'${s.qr_code}'` : 'null';
+        let checkBtn, respinBtn;
+        if (s.voided && s.respin) {
+          checkBtn  = `<button class="status-btn check-btn" onclick="reissueSpin(${s.id},${s.prize_id})"><span class="lbl-wrap"><span class="lbl-default">↺</span><span class="lbl-hover">Izdaj</span></span></button>`;
+          respinBtn = ``;
+        } else if (s.voided) {
+          checkBtn  = `<button class="status-btn x-btn" onclick="reissueSpin(${s.id},${s.prize_id})"><span class="lbl-wrap"><span class="lbl-default">✕</span><span class="lbl-hover">Izdaj</span></span></button>`;
+          respinBtn = ``;
+        } else {
+          checkBtn  = `<button class="status-btn check-btn" onclick="voidSpin(${s.id},${s.prize_id})"><span class="lbl-wrap"><span class="lbl-default">✓</span><span class="lbl-hover">Razveljavi</span></span></button>`;
+          respinBtn = `<button class="status-btn respin-btn" onclick="allowRespin(${s.id},${s.prize_id},${qrArg})"><span class="lbl-wrap"><span class="lbl-default">↺</span><span class="lbl-hover">Respin</span></span></button>`;
+        }
+        return `
+          <tr${rowClass}>
+            <td style="color:var(--fg-faint);font-size:11px;">${spins.length - i}</td>
+            <td class="code-cell">${code}</td>
+            <td class="prize-cell">${prize}</td>
+            <td class="time-cell">${time}</td>
+            <td class="check-cell">${checkBtn}</td>
+            <td class="respin-cell">${respinBtn}</td>
+          </tr>`;
+      }).join('');
+
+    } catch(e) {
+      console.error('Napaka:', e);
+    }
+  }
+</script>
+</body>
+</html>

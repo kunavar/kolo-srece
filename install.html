@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Namestite aplikacijo Generali ZAME</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #5c1a0a;
+      color: #F4ECDF;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      text-align: center;
+      padding: 24px;
+    }
+    h1 { font-size: 22px; font-weight: 600; margin: 0 0 8px; }
+    p  { opacity: 0.65; margin: 0 0 28px; font-size: 15px; }
+    .btn {
+      display: inline-block;
+      padding: 14px 32px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 16px;
+      text-decoration: none;
+    }
+    .btn-secondary {
+      background: none;
+      border: 1px solid rgba(244,236,223,0.3);
+      color: #F4ECDF;
+      margin-top: 16px;
+      font-size: 14px;
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <h1>Generali ZAME</h1>
+  <p>Odpiramo aplikacijo…</p>
+  <a class="btn btn-secondary" id="store-link" href="#">Namesti iz trgovine</a>
+
+  <script src="config.js"></script>
+  <script>
+    var ios      = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    var storeUrl = ios ? CONFIG.appStoreIos     : CONFIG.appStoreAndroid;
+    var deeplink = ios ? CONFIG.deeplinkIos     : CONFIG.deeplinkAndroid;
+
+    document.getElementById('store-link').href = storeUrl;
+
+    var appOpened = false;
+
+    function onAppOpen() {
+      if (appOpened) return;
+      appOpened = true;
+      clearTimeout(fallback);
+    }
+
+    // Sproži se ko brskalnik gre v ozadje (app se odpre)
+    window.addEventListener('blur', onAppOpen);
+    window.addEventListener('pagehide', onAppOpen);
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) onAppOpen();
+    });
+
+    // Poskusi odpreti app
+    window.location.href = deeplink;
+
+    // Če app ni nameščen → po 3 s napoti v trgovino
+    var fallback = setTimeout(function () {
+      if (!appOpened) window.location.href = storeUrl;
+    }, 3000);
+  </script>
+</body>
+</html>
